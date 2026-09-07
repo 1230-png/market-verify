@@ -31,7 +31,9 @@ services:
       - /tmp:/tmp
       - ./logs:/app/logs
     ports:
-      - "8000:8000"
+      # 127.0.0.1로만 바인딩 — Hetzner는 기본 방화벽이 꺼져 있어 "8000:8000"으로 두면
+      # 인증 없는 FastAPI가 공인 IP:8000으로 그대로 뚫린다. 외부 접근 필요해지면 nginx+TLS 뒤로.
+      - "127.0.0.1:8000:8000"
 
 volumes:
   pgdata:
