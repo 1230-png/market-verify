@@ -98,6 +98,39 @@ python video_renderer.py --no-download                      # 받아둔 클립 �
 python youtube_uploader.py --privacy unlisted
 ```
 
+### 먼저 환경 진단부터
+
+무엇이 준비됐고 무엇이 빠졌는지 한 번에 확인합니다. **파이프라인을 돌리기 전에 이것부터 실행하세요.**
+
+```powershell
+python doctor.py            # 설정만 점검 (빠름, 네트워크 호출 없음)
+python doctor.py --online   # RSS·TTS·Pexels 에 실제 접속해 확인
+python doctor.py --online --llm   # LLM 까지 실제 호출 (토큰 소량 소모)
+```
+
+출력 예시:
+
+```
+[ OK ] FFmpeg (내장)           ...\imageio_ffmpeg\binaries\ffmpeg-win64-v7.0.2.exe
+[ OK ] 한글 자막 폰트           C:\Windows\Fonts\malgun.ttf
+[실패]   피드 cointelegraph.com/rss      HTTPError: 404
+                                        → 주소 확인 또는 다른 매체로 교체하세요.
+[실패] token.json (인증)        없음 — 백그라운드 실행이 인증에서 멈춥니다
+                                → 터미널에서 `python youtube_uploader.py` 를 1회 실행하세요.
+```
+
+표시의 뜻은 이렇습니다.
+
+| 표시 | 의미 |
+|---|---|
+| `[ OK ]` | 문제 없음 |
+| `[경고]` | 없어도 파이프라인은 돌아감 (대체 경로가 있음) |
+| `[실패]` | 이 상태로는 해당 단계가 실패함 — `→` 안내대로 고쳐야 함 |
+
+`[실패]` 가 하나라도 있으면 종료 코드 `1` 을 돌려주므로, 작업 스케줄러나 배치 파일에서 사전 점검용으로 쓸 수 있습니다.
+
+**RSS 피드는 매체가 주소를 바꾸면 조용히 죽습니다.** `--online` 은 피드를 하나씩 실제로 받아보고 최신 헤드라인까지 보여주므로, 첫 실행 전에 꼭 한 번 돌려보세요.
+
 ### 첫 실행 테스트 (Dry Run)
 
 키를 채운 뒤 **업로드 없이** 한 번 돌려 보고 대본과 영상을 눈으로 확인하세요.
@@ -324,6 +357,7 @@ HISTORY_RETENTION_DAYS=365 # 이보다 오래된 기록은 정리
 | `run_pipeline.py` | 전체 | 위 단계를 순서대로 실행 |
 | `api_server.py` | API | 파이프라인을 HTTP 로 트리거하는 FastAPI 서버 |
 | `scheduler.py` | 자동화 | 매주 1회 `POST /jobs` 를 호출하는 스케줄러 데몬 |
+| `doctor.py` | 진단 | 키·피드·폰트·인증 상태를 한 번에 점검 |
 
 ### 자막이 그려지는 방식
 
