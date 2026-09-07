@@ -1,6 +1,6 @@
 """매주 1회 파이프라인을 자동 실행하는 스케줄러 데몬.
 
-기본값은 **매주 일요일 20:00** 에 api_server.py 의 ``POST /jobs`` 를 호출하고,
+기본값은 **매주 일요일 21:00** 에 api_server.py 의 ``POST /jobs`` 를 호출하고,
 작업이 끝날 때까지 상태를 지켜본 뒤 결과를 로그에 남긴다.
 
 전제: api_server.py 가 먼저 떠 있어야 한다.
@@ -220,7 +220,7 @@ def main() -> int:
     import schedule
 
     if not _valid_time(args.at):
-        log.error("시각 형식이 잘못되었습니다: %s (예: 20:00)", args.at)
+        log.error("시각 형식이 잘못되었습니다: %s (예: 21:00)", args.at)
         return 1
 
     getattr(schedule.every(), args.day).at(args.at).do(run_weekly, payload)

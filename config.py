@@ -136,7 +136,7 @@ YOUTUBE_DISCLAIMER = os.environ.get("YOUTUBE_DISCLAIMER", DEFAULT_DISCLAIMER).st
 # --------------------------------------------------------------------------
 API_BASE_URL = env("API_BASE_URL", "http://127.0.0.1:8000")
 SCHEDULE_DAY = env("SCHEDULE_DAY", "sunday").lower()   # 매주 실행 요일
-SCHEDULE_TIME = env("SCHEDULE_TIME", "20:00")          # HH:MM (24시간)
+SCHEDULE_TIME = env("SCHEDULE_TIME", "21:00")          # HH:MM (24시간)
 
 
 # --------------------------------------------------------------------------
