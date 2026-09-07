@@ -32,6 +32,8 @@ PHASE = "Phase 4"
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 
 RETRIABLE_STATUS_CODES = (500, 502, 503, 504)
+# YouTube 설명란 상한은 5000자. 여유를 두고 자른다.
+DESCRIPTION_LIMIT = 4900
 MAX_RETRIES = 5
 
 
@@ -118,9 +120,21 @@ def build_metadata(title: str | None = None, description: str | None = None) -> 
     def clean(text: str) -> str:
         return text.replace("<", "(").replace(">", ")")
 
+    body = clean("\n".join(body_lines))
+
+    # 면책 조항은 설명란 맨 끝에 붙인다.
+    # 길이 제한에 걸려도 조항이 잘려나가지 않도록, 조항 자리를 먼저 확보하고
+    # 본문 쪽을 줄인다. (조항이 잘리면 붙이는 의미가 없다)
+    disclaimer = clean(config.YOUTUBE_DISCLAIMER)
+    if disclaimer:
+        suffix = "\n\n" + disclaimer
+        body = body[: max(DESCRIPTION_LIMIT - len(suffix), 0)] + suffix
+    else:
+        body = body[:DESCRIPTION_LIMIT]
+
     return {
         "title": clean(final_title)[:100],
-        "description": clean("\n".join(body_lines))[:4900],
+        "description": body,
         "tags": config.YOUTUBE_TAGS[:20],
     }
 

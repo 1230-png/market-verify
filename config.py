@@ -122,6 +122,14 @@ YOUTUBE_PRIVACY = env("YOUTUBE_PRIVACY", "private")
 YOUTUBE_CATEGORY_ID = env("YOUTUBE_CATEGORY_ID", "25")  # 25 = News & Politics
 YOUTUBE_TAGS = [t.strip() for t in env("YOUTUBE_TAGS", "비트코인,암호화폐,코인뉴스,shorts").split(",") if t.strip()]
 
+# 설명란 맨 끝에 붙는 면책 조항. 대본이 방향성을 단정하므로 항상 따라붙게 한다.
+# .env 에서 YOUTUBE_DISCLAIMER 로 문구를 바꾸거나, 빈 값으로 두면 붙지 않는다.
+DEFAULT_DISCLAIMER = (
+    "[본 영상은 개인의 주관적인 차트 분석이며, 투자 권유나 리딩이 아닙니다. "
+    "모든 투자의 책임은 본인에게 있습니다.]"
+)
+YOUTUBE_DISCLAIMER = os.environ.get("YOUTUBE_DISCLAIMER", DEFAULT_DISCLAIMER).strip()
+
 
 # --------------------------------------------------------------------------
 # 스케줄러 (scheduler.py)

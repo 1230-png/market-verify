@@ -98,6 +98,37 @@ python video_renderer.py --no-download                      # 받아둔 클립 �
 python youtube_uploader.py --privacy unlisted
 ```
 
+### 첫 실행 테스트 (Dry Run)
+
+키를 채운 뒤 **업로드 없이** 한 번 돌려 보고 대본과 영상을 눈으로 확인하세요.
+
+```powershell
+.\venv\Scripts\activate
+python run_pipeline.py
+```
+
+끝나면 두 가지를 확인합니다.
+
+1. **`assets/script.txt`** — 인사말 없이 결론부터 시작하는지, [결론 → 차트 근거 → 거시·온체인 근거 → 텔레그램·구독] 4단 구조를 지켰는지
+2. **`output/final_video.mp4`** — 재생해서 자막이 잘리지 않는지, 길이가 60초 미만인지
+
+대본 톤이 마음에 안 들면 `script_maker.py` 의 `SYSTEM_PROMPT` 를 고치고 Phase 1 만 다시 돌리면 됩니다.
+
+```powershell
+python script_maker.py          # 대본만 다시 생성
+```
+
+API 서버를 통해 테스트하려면 터미널 두 개를 씁니다.
+
+```powershell
+python api_server.py                                   # 터미널 1
+python scheduler.py --run-now --no-upload              # 터미널 2 (즉시 1회)
+```
+
+업로드까지 포함해 실제와 똑같이 확인하려면 `--no-upload` 를 빼세요. 기본이 **비공개(private)** 업로드이므로 공개되지 않습니다.
+
+> **업로드 전 최초 1회는 반드시 터미널에서 인증하세요.** `python youtube_uploader.py` 를 실행하면 브라우저가 열리고, 승인 후 `token.json` 이 생깁니다. 이걸 해두지 않으면 백그라운드 자동 실행이 인증 단계에서 멈춥니다.
+
 ---
 
 ## 4. API 서버로 실행하기 (선택)
@@ -170,66 +201,91 @@ python scheduler.py --day saturday --time 21:30
 
 로그는 콘솔과 `logs/scheduler.log` 에 함께 쌓입니다 (5MB씩 3개 회전).
 
-### 백그라운드로 계속 돌리기 (Windows)
+### 백그라운드로 계속 돌리기 (Windows 작업 스케줄러)
 
-**방법 A — `pythonw` 로 콘솔 없이 실행 (가장 간단)**
+`pythonw` 로 그냥 띄우면 재부팅 시 꺼집니다. **작업 스케줄러에 등록해야 PC 를 껐다 켜도 알아서 돕니다.**
 
-`pythonw.exe` 는 콘솔 창 없이 실행됩니다. 창을 닫아도 계속 돕니다.
+> **중요 — 작업을 2개 등록해야 합니다.**
+> `scheduler.py` 는 `api_server.py` 의 `POST /jobs` 를 호출하는 구조입니다. 서버가 떠 있지 않으면 매주 일요일마다 연결 실패 로그만 남고 영상이 만들어지지 않습니다. **API 서버와 스케줄러를 각각 등록하세요.**
+
+#### GUI 로 등록하기
+
+`Windows 키 + R` → `taskschd.msc` 입력 → 작업 스케줄러 실행.
+
+우측의 **기본 작업 만들기...** 를 클릭하고 아래 순서대로 진행합니다.
+
+| 단계 | 입력값 (① API 서버) | 입력값 (② 스케줄러) |
+|---|---|---|
+| 이름 | `유튜브 자동화 - API 서버` | `유튜브 자동화 - 스케줄러` |
+| 트리거 | 컴퓨터 시작 시 | 컴퓨터 시작 시 |
+| 작업 | 프로그램 시작 | 프로그램 시작 |
+| 프로그램/스크립트 | `C:\작업폴더\venv\Scripts\pythonw.exe` | `C:\작업폴더\venv\Scripts\pythonw.exe` |
+| 인수 추가 | `-m uvicorn api_server:app --port 8000` | `scheduler.py --quiet` |
+| 시작 위치 | `C:\작업폴더` | `C:\작업폴더` |
+
+경로의 `C:\작업폴더` 는 실제 프로젝트 폴더로 바꾸세요.
+
+**마침** 을 누르기 전에 `마침을 클릭할 때 이 작업의 속성 대화 상자 열기` 에 체크합니다. 열린 속성 창에서:
+
+- **조건** 탭 → `작업을 실행하기 위해 절전 모드 종료` 체크
+  (일요일 20:00 에 PC 가 절전이면 실행되지 않습니다)
+- **조건** 탭 → `컴퓨터의 AC 전원이 켜져 있는 경우에만 작업 시작` 은 **해제**
+  (노트북이라면 배터리 상태에서도 돌게 하려면 꺼야 합니다)
+- **설정** 탭 → `작업이 실패하는 경우 다시 시작 간격` 을 1분, 3회로 설정
+
+두 작업 모두 같은 속성을 적용하세요.
+
+#### 명령줄로 한 번에 등록하기
+
+GUI 대신 PowerShell 로 등록해도 됩니다.
 
 ```powershell
-Start-Process -WindowStyle Hidden .env\Scripts\pythonw.exe -ArgumentList "scheduler.py","--quiet"
+$dir = "C:\작업폴더"
+
+schtasks /create /tn "유튜브 자동화 - API 서버" /sc onstart /rl highest /f `
+  /tr "'$dir\venv\Scripts\pythonw.exe' -m uvicorn api_server:app --port 8000"
+
+schtasks /create /tn "유튜브 자동화 - 스케줄러" /sc onstart /rl highest /f `
+  /tr "'$dir\venv\Scripts\pythonw.exe' '$dir\scheduler.py' --quiet"
 ```
 
-콘솔이 없으므로 상태는 로그 파일로 확인하세요.
+`schtasks` 로 만든 작업에는 `시작 위치` 가 없으므로 반드시 **절대 경로**를 쓰세요.
+
+등록 확인 · 즉시 실행 · 해제:
+
+```powershell
+schtasks /query  /tn "유튜브 자동화 - 스케줄러"
+schtasks /run    /tn "유튜브 자동화 - 스케줄러"   # 재부팅 없이 지금 켜보기
+schtasks /delete /tn "유튜브 자동화 - 스케줄러" /f
+```
+
+#### 등록 후 확인
+
+콘솔이 없으므로 로그 파일로 확인합니다.
 
 ```powershell
 Get-Content .\logs\scheduler.log -Tail 30 -Wait
 ```
 
-종료할 때:
+`스케줄러 시작 — 매주 sunday 20:00 에 실행합니다.` 와 `다음 실행 예정: ...` 이 찍히면 정상입니다.
+
+실행 중인지 확인하고 종료하려면:
 
 ```powershell
+Get-CimInstance Win32_Process -Filter "Name='pythonw.exe'" |
+  Select-Object ProcessId, CommandLine
+
 Get-CimInstance Win32_Process -Filter "Name='pythonw.exe'" |
   Where-Object { $_.CommandLine -like '*scheduler.py*' } |
   ForEach-Object { Stop-Process -Id $_.ProcessId }
 ```
 
-**방법 B — 작업 스케줄러에 등록 (재부팅 후 자동 시작, 권장)**
+> **첫 업로드 전에 한 번은 수동 인증이 필요합니다.** YouTube OAuth 는 브라우저 승인을 거쳐야 `token.json` 이 생깁니다. `pythonw` 는 창이 없어 이 과정을 진행할 수 없으므로, 등록 전에 터미널에서 `python youtube_uploader.py` 를 한 번 실행해 인증을 마쳐 두세요. 이후로는 저장된 토큰이 자동 갱신됩니다.
 
-PC 를 껐다 켜도 자동으로 살아나게 하려면 이 방법을 쓰세요. 경로는 실제 프로젝트 위치로 바꾸세요.
+#### 트리거를 '컴퓨터 시작 시' 로 둘 때 참고
 
-```powershell
-$dir = "C:\path\to\market-verify"
+`컴퓨터 시작 시` 는 로그인 전에도 실행되지만 SYSTEM 계정으로 돌아 사용자 환경(네트워크 드라이브 등)에 접근하지 못할 수 있습니다. 문제가 생기면 트리거를 **`로그온할 때`** 로 바꾸고, 속성 창의 `일반` 탭에서 `사용자가 로그온할 때만 실행` 을 선택하세요.
 
-# API 서버 — 로그온 시 자동 시작
-schtasks /create /tn "ShortsPipeline-API" /sc onlogon /rl highest /f `
-  /tr "$dir\venv\Scripts\pythonw.exe -m uvicorn api_server:app --port 8000"
-
-# 스케줄러 — 로그온 시 자동 시작
-schtasks /create /tn "ShortsPipeline-Scheduler" /sc onlogon /rl highest /f `
-  /tr "$dir\venv\Scripts\pythonw.exe $dir\scheduler.py --quiet"
-```
-
-등록 확인과 해제:
-
-```powershell
-schtasks /query /tn "ShortsPipeline-Scheduler"
-schtasks /run   /tn "ShortsPipeline-Scheduler"   # 즉시 실행 테스트
-schtasks /delete /tn "ShortsPipeline-Scheduler" /f
-```
-
-> 작업 스케줄러는 `시작 위치`를 지정하지 않으면 상대 경로를 못 찾습니다. 위처럼 **절대 경로**를 쓰거나, 작업 스케줄러 GUI 에서 `시작 위치(디렉터리)`를 프로젝트 폴더로 설정하세요.
-
-> **절전 주의:** 일요일 20:00 에 PC 가 절전/최대 절전 상태면 실행되지 않습니다. 작업 스케줄러 GUI 의 `조건` 탭에서 `작업을 실행하기 위해 절전 모드 해제`를 켜두면 안전합니다.
-
-**방법 C — 작업 스케줄러만으로 주간 실행**
-
-`scheduler.py` 를 상주시키지 않고 작업 스케줄러가 직접 매주 실행하게 할 수도 있습니다. 이때 `--run-now` 를 붙이면 1회 실행 후 종료합니다.
-
-```powershell
-schtasks /create /tn "ShortsPipeline-Weekly" /sc weekly /d SUN /st 20:00 /f `
-  /tr "$dir\venv\Scripts\pythonw.exe $dir\scheduler.py --run-now --quiet"
-```
 
 ---
 
@@ -264,7 +320,7 @@ HISTORY_RETENTION_DAYS=365 # 이보다 오래된 기록은 정리
 | `script_maker.py` | Phase 1 | RSS/URL 크롤링 → LLM 요약 → `assets/script.txt`, `assets/script_meta.json` |
 | `tts_generator.py` | Phase 2 | edge-tts 로 한국어 남성 음성 → `assets/audio.mp3` |
 | `video_renderer.py` | Phase 3 | Pexels 세로 영상 3개 다운로드 → 1080x1920 합성 + 하단 자막 → `output/final_video.mp4` |
-| `youtube_uploader.py` | Phase 4 | OAuth 2.0 브라우저 인증 → 비공개 업로드 (제목/설명 자동 작성) |
+| `youtube_uploader.py` | Phase 4 | OAuth 2.0 브라우저 인증 → 비공개 업로드 (제목/설명 자동 작성, 면책 조항 부착) |
 | `run_pipeline.py` | 전체 | 위 단계를 순서대로 실행 |
 | `api_server.py` | API | 파이프라인을 HTTP 로 트리거하는 FastAPI 서버 |
 | `scheduler.py` | 자동화 | 매주 1회 `POST /jobs` 를 호출하는 스케줄러 데몬 |
