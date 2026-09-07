@@ -17,6 +17,9 @@ TMP_DIR = "/tmp"
 DEFAULT_DURATION = 15  # 오디오 없이 호출될 때만 쓰는 fallback
 MAX_DURATION = 90  # 안전 상한 (TTS가 비정상적으로 길게 나오는 경우 대비)
 CANVAS_SIZE = (1080, 1920)  # 쇼츠 표준 세로 캔버스
+# 한글 자막 폰트. 미지정 시 기본 폰트에 한글 글리프가 없어 □□□로 깨진다.
+# Dockerfile의 fonts-nanum이 설치하는 경로. 로컬 렌더 시 FONT_PATH로 덮어쓸 수 있다.
+FONT_PATH = os.environ.get("FONT_PATH", "/usr/share/fonts/truetype/nanum/NanumGothic.ttf")
 
 PEXELS_SEARCH_URL = "https://api.pexels.com/v1/search"
 
@@ -96,6 +99,7 @@ def generate_short(bg_image_path: str, script_text: str, audio_path: str | None 
         txt_clip = (
             TextClip(
                 text=script_text,
+                font=FONT_PATH,
                 font_size=60,
                 color="white",
                 stroke_color="black",
