@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
-    restart: unless-stopped
+    restart: always
     environment:
       POSTGRES_DB: moneylogic
       POSTGRES_USER: moneylogic
@@ -17,7 +17,7 @@ services:
 
   app:
     build: .
-    restart: unless-stopped
+    restart: always
     env_file: .env
     environment:
       # db 서비스명으로 접속. .env의 DATABASE_URL(로컬 테스트용)보다 우선 적용된다.

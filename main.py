@@ -63,14 +63,14 @@ def _build_title_and_description(data: script_generator.MarketData) -> tuple[str
     return title, description
 
 
-async def run_daily_short_job() -> None:
+async def run_daily_short_job(force: bool = False) -> None:
     """
     데이터 수집 -> 대본(Gemini) -> TTS(edge-tts) -> 배경 이미지(Pexels) -> 영상 합성(MoviePy) -> 유튜브 업로드.
     yfinance/Gemini/requests/MoviePy는 전부 블로킹 호출이라 asyncio.to_thread로 돌려 이벤트 루프를 막지 않는다.
     각 단계가 만든 임시 파일은 성공/실패와 무관하게 finally에서 전부 지운다 (디스크 에러 방지).
     크리티컬 실패(할당량 초과, 인증 풀림, 렌더링 실패 등)는 디스코드로 즉시 알림한다.
     """
-    if await _already_uploaded_today(CHANNEL_NAME):
+    if not force and await _already_uploaded_today(CHANNEL_NAME):
         logger.info("Already uploaded today for %s, skipping.", CHANNEL_NAME)
         return
 

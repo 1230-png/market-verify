@@ -1,5 +1,5 @@
 .env
-token.json
+token.json*
 client_secret.json
 logs/
 __pycache__/
