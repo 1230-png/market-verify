@@ -139,7 +139,124 @@ curl http://127.0.0.1:8000/jobs/<job_id>
 
 ---
 
-## 5. 모듈 구성
+## 5. 매주 자동 실행 (완전 자동화)
+
+매주 일요일 20:00 에 새 소재로 영상을 만들어 **비공개**로 업로드합니다. 서버와 스케줄러 두 개가 함께 떠 있어야 합니다.
+
+```powershell
+# 터미널 1 — API 서버
+uvicorn api_server:app --port 8000
+
+# 터미널 2 — 스케줄러
+python scheduler.py
+```
+
+스케줄을 기다리지 않고 지금 한 번 돌려보려면:
+
+```powershell
+python scheduler.py --run-now              # 즉시 1회 실행 후 종료
+python scheduler.py --run-now --no-upload  # 업로드 없이 렌더링만
+python scheduler.py --day saturday --time 21:30
+```
+
+스케줄러가 하는 일:
+
+1. `GET /health` 로 서버가 살아있는지 확인 (부팅 직후를 대비해 최대 60초 대기)
+2. `POST /jobs` 호출 — 실패하면 **5 → 10 → 20 → 40초** 간격으로 최대 4회 재시도
+3. 작업이 끝날 때까지 상태를 지켜보며 단계 변화를 로그에 기록
+4. 결과(영상 경로, 업로드된 videoId 또는 실패 원인)를 남김
+
+이미 다른 작업이 돌고 있으면 서버가 `409` 를 주고, 스케줄러는 재시도 없이 그 주를 건너뜁니다.
+
+로그는 콘솔과 `logs/scheduler.log` 에 함께 쌓입니다 (5MB씩 3개 회전).
+
+### 백그라운드로 계속 돌리기 (Windows)
+
+**방법 A — `pythonw` 로 콘솔 없이 실행 (가장 간단)**
+
+`pythonw.exe` 는 콘솔 창 없이 실행됩니다. 창을 닫아도 계속 돕니다.
+
+```powershell
+Start-Process -WindowStyle Hidden .env\Scripts\pythonw.exe -ArgumentList "scheduler.py","--quiet"
+```
+
+콘솔이 없으므로 상태는 로그 파일로 확인하세요.
+
+```powershell
+Get-Content .\logs\scheduler.log -Tail 30 -Wait
+```
+
+종료할 때:
+
+```powershell
+Get-CimInstance Win32_Process -Filter "Name='pythonw.exe'" |
+  Where-Object { $_.CommandLine -like '*scheduler.py*' } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId }
+```
+
+**방법 B — 작업 스케줄러에 등록 (재부팅 후 자동 시작, 권장)**
+
+PC 를 껐다 켜도 자동으로 살아나게 하려면 이 방법을 쓰세요. 경로는 실제 프로젝트 위치로 바꾸세요.
+
+```powershell
+$dir = "C:\path\to\market-verify"
+
+# API 서버 — 로그온 시 자동 시작
+schtasks /create /tn "ShortsPipeline-API" /sc onlogon /rl highest /f `
+  /tr "$dir\venv\Scripts\pythonw.exe -m uvicorn api_server:app --port 8000"
+
+# 스케줄러 — 로그온 시 자동 시작
+schtasks /create /tn "ShortsPipeline-Scheduler" /sc onlogon /rl highest /f `
+  /tr "$dir\venv\Scripts\pythonw.exe $dir\scheduler.py --quiet"
+```
+
+등록 확인과 해제:
+
+```powershell
+schtasks /query /tn "ShortsPipeline-Scheduler"
+schtasks /run   /tn "ShortsPipeline-Scheduler"   # 즉시 실행 테스트
+schtasks /delete /tn "ShortsPipeline-Scheduler" /f
+```
+
+> 작업 스케줄러는 `시작 위치`를 지정하지 않으면 상대 경로를 못 찾습니다. 위처럼 **절대 경로**를 쓰거나, 작업 스케줄러 GUI 에서 `시작 위치(디렉터리)`를 프로젝트 폴더로 설정하세요.
+
+> **절전 주의:** 일요일 20:00 에 PC 가 절전/최대 절전 상태면 실행되지 않습니다. 작업 스케줄러 GUI 의 `조건` 탭에서 `작업을 실행하기 위해 절전 모드 해제`를 켜두면 안전합니다.
+
+**방법 C — 작업 스케줄러만으로 주간 실행**
+
+`scheduler.py` 를 상주시키지 않고 작업 스케줄러가 직접 매주 실행하게 할 수도 있습니다. 이때 `--run-now` 를 붙이면 1회 실행 후 종료합니다.
+
+```powershell
+schtasks /create /tn "ShortsPipeline-Weekly" /sc weekly /d SUN /st 20:00 /f `
+  /tr "$dir\venv\Scripts\pythonw.exe $dir\scheduler.py --run-now --quiet"
+```
+
+---
+
+## 6. 주제 중복 방지
+
+같은 사건을 몇 주 간격으로 다시 다루면 채널이 반복적으로 보입니다. Phase 1 이 다룬 주제를 `assets/history.json` 에 기록하고, 다음 실행 때 최근 것과 겹치는 소재를 걸러냅니다.
+
+거르는 기준은 두 가지입니다.
+
+1. **URL** — 추적 파라미터·`www`·끝 슬래시를 정규화해 비교하므로 같은 기사를 다른 링크로 받아도 걸러집니다.
+2. **제목 키워드** — 겹친 키워드 수를 짧은 쪽 크기로 나눈 값(중복 계수)이 `HISTORY_SIMILARITY` 이상이면 같은 사건으로 봅니다. 어순만 바꾼 제목도 잡힙니다.
+
+`비트코인`·`상승` 같은 흔한 단어는 불용어로 빠지고, 겹친 키워드가 2개 미만이면 우연으로 보아 중복 처리하지 않습니다. 같은 실행 안에서 서로 겹치는 기사들도 함께 정리됩니다.
+
+```bash
+HISTORY_DAYS=90            # 최근 3개월 내 주제 제외
+HISTORY_SIMILARITY=0.6     # 낮출수록 엄격하게 걸러냄
+HISTORY_RETENTION_DAYS=365 # 이보다 오래된 기록은 정리
+```
+
+**모든 기사가 걸러져 소재가 없으면 파이프라인은 영상을 만들지 않고 중단합니다.** `FEED_URLS` 에 매체를 더 추가하거나 `HISTORY_DAYS` 를 줄이세요.
+
+기록을 초기화하려면 `assets/history.json` 을 지우면 됩니다.
+
+---
+
+## 7. 모듈 구성
 
 | 파일 | 단계 | 하는 일 |
 |---|---|---|
@@ -150,6 +267,7 @@ curl http://127.0.0.1:8000/jobs/<job_id>
 | `youtube_uploader.py` | Phase 4 | OAuth 2.0 브라우저 인증 → 비공개 업로드 (제목/설명 자동 작성) |
 | `run_pipeline.py` | 전체 | 위 단계를 순서대로 실행 |
 | `api_server.py` | API | 파이프라인을 HTTP 로 트리거하는 FastAPI 서버 |
+| `scheduler.py` | 자동화 | 매주 1회 `POST /jobs` 를 호출하는 스케줄러 데몬 |
 
 ### 자막이 그려지는 방식
 
@@ -163,7 +281,7 @@ curl http://127.0.0.1:8000/jobs/<job_id>
 
 ---
 
-## 6. 문제 해결
+## 8. 문제 해결
 
 **`Activate.ps1 을 로드할 수 없습니다`**
 → 1번 항목의 `Set-ExecutionPolicy` 를 실행하세요.
@@ -188,7 +306,7 @@ curl http://127.0.0.1:8000/jobs/<job_id>
 
 ---
 
-## 7. 렌더링 확인 결과
+## 9. 렌더링 확인 결과
 
 이 저장소의 코드는 다음을 실제로 실행해 확인했습니다.
 
@@ -198,5 +316,11 @@ curl http://127.0.0.1:8000/jobs/<job_id>
 - 가로(1920x1080)·세로(720x1600) 소스 양쪽의 9:16 크롭 변환
 - API 서버: `/health` 점검, `POST /jobs` 로 렌더링 완주, `/jobs/{id}/video` 다운로드,
   동시 실행 시 409, 실패 시 오류 기록과 락 해제까지 확인
+- 중복 방지: 동일 URL·어순만 바꾼 제목은 제외, 반대 사건(유입/유출)과 다른 주제는 통과,
+  3개월 경과분은 다시 허용되는 것까지 확인
+- 스케줄러: 서버 미기동 시 재시도 후 실패 보고, 매주 일요일 20:00 다음 실행 시각 계산,
+  실제 서버에 `POST /jobs` → 완료까지 추적, 409 시 그 주 건너뛰기 확인
 
-Phase 1 의 실제 RSS 수집, Phase 2 의 edge-tts 합성, Phase 3 의 Pexels 다운로드, Phase 4 의 업로드는 개발 환경의 네트워크 제약으로 **외부 API 호출까지는 검증하지 못했습니다.** 코드 경로와 오류 처리는 로컬 픽스처로 확인했습니다.
+Phase 1 의 실제 RSS 수집, Phase 2 의 edge-tts 합성, Phase 3 의 Pexels 다운로드,
+Phase 4 의 업로드는 개발 환경의 네트워크 제약으로 **외부 API 호출까지는 검증하지 못했습니다.**
+따라서 LLM 이 실제로 페르소나 지시를 얼마나 잘 따르는지도 확인되지 않았습니다.

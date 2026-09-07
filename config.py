@@ -33,6 +33,7 @@ CLIPS_DIR = ASSETS_DIR / "clips"
 
 SCRIPT_PATH = ASSETS_DIR / "script.txt"        # Phase 1 결과물
 META_PATH = ASSETS_DIR / "script_meta.json"    # Phase 1 → Phase 4 로 넘기는 제목/설명
+HISTORY_PATH = ASSETS_DIR / "history.json"     # 다룬 주제 기록 (중복 방지)
 AUDIO_PATH = ASSETS_DIR / "audio.mp3"          # Phase 2 결과물
 VIDEO_PATH = OUTPUT_DIR / "final_video.mp4"    # Phase 3 결과물
 
@@ -76,6 +77,13 @@ DEFAULT_FEEDS = ",".join(
 FEED_URLS = [u.strip() for u in env("FEED_URLS", DEFAULT_FEEDS).split(",") if u.strip()]
 MAX_HEADLINES = env_int("MAX_HEADLINES", 8)
 
+# 주제 중복 방지: 최근 며칠 안에 다룬 소재를 제외할지 (기본 3개월)
+HISTORY_DAYS = env_int("HISTORY_DAYS", 90)
+# 제목 키워드가 이 자카드 유사도 이상 겹치면 같은 사건으로 본다 (0~1)
+HISTORY_SIMILARITY = float(env("HISTORY_SIMILARITY", "0.6"))
+# history.json 보존 기간. 이보다 오래된 항목은 정리한다.
+HISTORY_RETENTION_DAYS = env_int("HISTORY_RETENTION_DAYS", 365)
+
 LLM_PROVIDER = env("LLM_PROVIDER", "openai").lower()   # openai | gemini | none
 OPENAI_API_KEY = env("OPENAI_API_KEY")
 OPENAI_MODEL = env("OPENAI_MODEL", "gpt-4o-mini")
@@ -113,6 +121,14 @@ SUBTITLE_BOTTOM_MARGIN = env_int("SUBTITLE_BOTTOM_MARGIN", 320)
 YOUTUBE_PRIVACY = env("YOUTUBE_PRIVACY", "private")
 YOUTUBE_CATEGORY_ID = env("YOUTUBE_CATEGORY_ID", "25")  # 25 = News & Politics
 YOUTUBE_TAGS = [t.strip() for t in env("YOUTUBE_TAGS", "비트코인,암호화폐,코인뉴스,shorts").split(",") if t.strip()]
+
+
+# --------------------------------------------------------------------------
+# 스케줄러 (scheduler.py)
+# --------------------------------------------------------------------------
+API_BASE_URL = env("API_BASE_URL", "http://127.0.0.1:8000")
+SCHEDULE_DAY = env("SCHEDULE_DAY", "sunday").lower()   # 매주 실행 요일
+SCHEDULE_TIME = env("SCHEDULE_TIME", "20:00")          # HH:MM (24시간)
 
 
 # --------------------------------------------------------------------------

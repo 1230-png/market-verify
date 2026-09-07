@@ -125,9 +125,12 @@ def _run_pipeline(job_id: str, req: JobRequest) -> None:
         else:
             import script_maker
 
-            articles = script_maker.fetch_from_feeds(config.FEED_URLS, config.MAX_HEADLINES)
+            # 최근 3개월 안에 다룬 주제는 collect_articles 가 걸러낸다.
+            articles = script_maker.collect_articles(config.MAX_HEADLINES)
             if not articles:
-                raise RuntimeError("RSS 에서 기사를 하나도 받지 못했습니다.")
+                raise RuntimeError(
+                    "쓸 수 있는 새 주제가 없습니다. 피드가 갱신되지 않았거나 최근 주제와 모두 중복입니다."
+                )
 
             provider = req.provider or config.LLM_PROVIDER
             if provider == "openai" and not config.OPENAI_API_KEY:

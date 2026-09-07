@@ -15,3 +15,4 @@ assets/*
 !assets/.gitkeep
 output/*
 !output/.gitkeep
+logs/

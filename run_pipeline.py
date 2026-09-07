@@ -35,9 +35,10 @@ def main() -> int:
     else:
         import script_maker
 
-        articles = script_maker.fetch_from_feeds(config.FEED_URLS, config.MAX_HEADLINES)
+        # collect_articles 는 최근에 다룬 주제를 걸러낸 목록을 돌려준다.
+        articles = script_maker.collect_articles(config.MAX_HEADLINES)
         if not articles:
-            config.log("Phase 1", "기사를 하나도 못 받았습니다. 중단합니다.")
+            config.log("Phase 1", "쓸 수 있는 새 주제가 없습니다. 중단합니다.")
             return 1
 
         provider = args.provider

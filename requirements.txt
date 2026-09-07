@@ -32,3 +32,6 @@ google-auth-httplib2==0.4.2
 # --- API 서버: 파이프라인을 HTTP 로 트리거 (api_server.py) ---
 fastapi==0.141.1
 uvicorn==0.52.4
+
+# --- 주간 자동 실행 스케줄러 (scheduler.py) ---
+schedule==1.2.2
