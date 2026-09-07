@@ -8,7 +8,7 @@ from google import genai
 logger = logging.getLogger(__name__)
 
 WATCHLIST = ["AAPL", "TSLA", "NVDA"]
-GEMINI_MODEL = "gemini-flash-latest"  # 버전 고정 대신 별칭 — 폐기 때마다 재수정 불필요
+GEMINI_MODEL = "gemini-3.6-flash"  # flash-latest 별칭이 지속 503 과부하라 안정 버전 고정. 폐기되면 상향 필요
 
 
 @dataclass
