@@ -1,0 +1,17 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 시크릿 (절대 커밋 금지)
+.env
+client_secrets.json
+token.json
+
+# 생성물
+assets/*
+!assets/.gitkeep
+output/*
+!output/.gitkeep

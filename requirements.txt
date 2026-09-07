@@ -1,0 +1,34 @@
+# ---------------------------------------------------------------------------
+# 유튜브 쇼츠 자동화 파이프라인 의존성
+#
+# [중요] FFmpeg 수동 설치 / Path 환경변수 설정이 필요 없습니다.
+#        imageio-ffmpeg 가 OS 별 FFmpeg 바이너리를 함께 배포하며,
+#        config.py 의 bootstrap_ffmpeg() 가 MoviePy 를 해당 바이너리로 고정합니다.
+# ---------------------------------------------------------------------------
+
+# --- Phase 3: 영상 렌더링 (FFmpeg 내장) ---
+moviepy==2.2.1
+imageio-ffmpeg==0.6.0
+pillow==11.3.0
+
+# --- Phase 1: 데이터 수집 & 대본 생성 ---
+feedparser==6.0.14
+requests==2.34.2
+beautifulsoup4==4.15.0
+python-dotenv==1.2.3
+
+# LLM (둘 중 사용하는 쪽만 있어도 동작합니다. LLM_PROVIDER 로 선택)
+openai==3.8.0
+google-genai==2.22.0
+
+# --- Phase 2: TTS ---
+edge-tts==7.2.8
+
+# --- Phase 4: 유튜브 업로드 ---
+google-api-python-client==2.200.0
+google-auth-oauthlib==1.4.1
+google-auth-httplib2==0.4.2
+
+# --- 선택: FastAPI 로 파이프라인을 HTTP 로 트리거할 때 ---
+fastapi==0.141.1
+uvicorn==0.52.4
