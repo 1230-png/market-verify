@@ -1,0 +1,15 @@
+# 시크릿 — 런타임엔 env_file/DB로 주입되므로 이미지 레이어에 구울 이유가 없다
+.env
+.env.*
+token.json*
+client_secret.json
+# 불필요한 컨텍스트
+.git
+.venv
+__pycache__
+*.pyc
+*.db
+logs/
+audio_out/
+chart_out/
+video_out/
