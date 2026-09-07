@@ -100,7 +100,46 @@ python youtube_uploader.py --privacy unlisted
 
 ---
 
-## 4. 모듈 구성
+## 4. API 서버로 실행하기 (선택)
+
+파이프라인을 HTTP 로 트리거하고 싶을 때 씁니다. 렌더링은 수 분이 걸리므로 요청은 즉시 반환되고, 작업은 백그라운드에서 돌아갑니다.
+
+```powershell
+uvicorn api_server:app --reload --port 8000
+```
+
+브라우저에서 <http://127.0.0.1:8000/docs> 를 열면 대화형 API 문서가 나옵니다.
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| `GET` | `/health` | FFmpeg 경로·자막 폰트·키 설정 여부 점검 |
+| `POST` | `/jobs` | 파이프라인 시작 → `job_id` 즉시 반환 (202) |
+| `GET` | `/jobs` | 작업 목록 |
+| `GET` | `/jobs/{job_id}` | 상태와 단계별 진행 로그 |
+| `GET` | `/jobs/{job_id}/video` | 완성된 mp4 내려받기 |
+
+설치 직후 환경 점검부터 해보세요.
+
+```powershell
+curl http://127.0.0.1:8000/health
+```
+
+작업 시작과 진행 확인:
+
+```powershell
+curl -X POST http://127.0.0.1:8000/jobs -H "Content-Type: application/json" -d "{\"upload\": false}"
+curl http://127.0.0.1:8000/jobs/<job_id>
+```
+
+`POST /jobs` 로 넘길 수 있는 값은 CLI 옵션과 같습니다: `provider`, `query`, `upload`, `privacy`, `skip_script`, `skip_tts`, `download`.
+
+**렌더링은 CPU 를 많이 쓰므로 한 번에 하나만 실행됩니다.** 이미 작업이 돌고 있으면 `409` 를 돌려주니, `GET /health` 의 `busy` 를 먼저 확인하세요.
+
+> 이 서버는 `127.0.0.1` 로컬 전용입니다. 인증이 없으므로 외부에 그대로 노출하지 마세요.
+
+---
+
+## 5. 모듈 구성
 
 | 파일 | 단계 | 하는 일 |
 |---|---|---|
@@ -110,6 +149,7 @@ python youtube_uploader.py --privacy unlisted
 | `video_renderer.py` | Phase 3 | Pexels 세로 영상 3개 다운로드 → 1080x1920 합성 + 하단 자막 → `output/final_video.mp4` |
 | `youtube_uploader.py` | Phase 4 | OAuth 2.0 브라우저 인증 → 비공개 업로드 (제목/설명 자동 작성) |
 | `run_pipeline.py` | 전체 | 위 단계를 순서대로 실행 |
+| `api_server.py` | API | 파이프라인을 HTTP 로 트리거하는 FastAPI 서버 |
 
 ### 자막이 그려지는 방식
 
@@ -123,7 +163,7 @@ python youtube_uploader.py --privacy unlisted
 
 ---
 
-## 5. 문제 해결
+## 6. 문제 해결
 
 **`Activate.ps1 을 로드할 수 없습니다`**
 → 1번 항목의 `Set-ExecutionPolicy` 를 실행하세요.
@@ -148,12 +188,15 @@ python youtube_uploader.py --privacy unlisted
 
 ---
 
-## 6. 렌더링 확인 결과
+## 7. 렌더링 확인 결과
 
 이 저장소의 코드는 다음을 실제로 실행해 확인했습니다.
 
 - `imageio-ffmpeg` 내장 FFmpeg 로 MoviePy 가 동작 (수동 설치 없음)
 - 1080x1920 / 30fps / H.264 + AAC 로 `final_video.mp4` 생성
 - 한글 자막이 하단에 정상 렌더링 (Pillow 직접 그리기, ImageMagick 불필요)
+- 가로(1920x1080)·세로(720x1600) 소스 양쪽의 9:16 크롭 변환
+- API 서버: `/health` 점검, `POST /jobs` 로 렌더링 완주, `/jobs/{id}/video` 다운로드,
+  동시 실행 시 409, 실패 시 오류 기록과 락 해제까지 확인
 
 Phase 1 의 실제 RSS 수집, Phase 2 의 edge-tts 합성, Phase 3 의 Pexels 다운로드, Phase 4 의 업로드는 개발 환경의 네트워크 제약으로 **외부 API 호출까지는 검증하지 못했습니다.** 코드 경로와 오류 처리는 로컬 픽스처로 확인했습니다.

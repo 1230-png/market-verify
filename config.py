@@ -187,7 +187,27 @@ def find_korean_font() -> str:
     )
 
 
+# 진행 로그를 가로챌 구독자들. API 서버가 작업별 로그를 모을 때 쓴다.
+_log_sinks: list = []
+
+
+def add_log_sink(sink) -> None:
+    """log() 호출을 함께 받아볼 콜백을 등록한다. sink(phase, message) 형태."""
+    _log_sinks.append(sink)
+
+
+def remove_log_sink(sink) -> None:
+    if sink in _log_sinks:
+        _log_sinks.remove(sink)
+
+
 def log(phase: str, message: str) -> None:
     """단계 표시가 붙은 진행 로그."""
     print(f"[{phase}] {message}", flush=True)
     sys.stdout.flush()
+    for sink in list(_log_sinks):
+        try:
+            sink(phase, message)
+        except Exception:
+            # 로그 구독자의 오류가 파이프라인을 멈추게 해선 안 된다.
+            pass

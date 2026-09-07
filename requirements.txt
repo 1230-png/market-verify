@@ -29,6 +29,6 @@ google-api-python-client==2.200.0
 google-auth-oauthlib==1.4.1
 google-auth-httplib2==0.4.2
 
-# --- 선택: FastAPI 로 파이프라인을 HTTP 로 트리거할 때 ---
+# --- API 서버: 파이프라인을 HTTP 로 트리거 (api_server.py) ---
 fastapi==0.141.1
 uvicorn==0.52.4
