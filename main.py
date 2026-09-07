@@ -76,7 +76,7 @@ async def run_daily_short_job(force: bool = False) -> None:
 
     stage = "init"
     audio_path = None
-    image_path = None
+    image_paths: list[str] = []
     output_path = None
     try:
         stage = "market_data"
@@ -89,19 +89,19 @@ async def run_daily_short_job(force: bool = False) -> None:
 
         stage = "tts"
         with _timed_stage(stage):
-            audio_path = await tts_generator.synthesize_speech(script_text)
+            audio_path, subtitle_segments = await tts_generator.synthesize_speech(script_text)
 
-        stage = "background_image"
+        stage = "background_images"
         with _timed_stage(stage):
-            keyword = "stock market rally" if market_data.spy_change_pct >= 0 else "stock market crash"
-            image_path = await asyncio.to_thread(
-                media_generator.fetch_background_image, [keyword, "finance", "stock market"]
-            )
+            # 컷 전환용으로 서로 다른 이미지 여러 장을 받는다. 등락 방향 + 경제/투자 키워드 풀로 변화를 준다.
+            trend = "stock market rally" if market_data.spy_change_pct >= 0 else "stock market crash"
+            keywords = [trend, "finance", "stock market", "trading chart", "business city", "money investment"]
+            image_paths = await asyncio.to_thread(media_generator.fetch_background_images, keywords)
 
         stage = "render"
         with _timed_stage(stage):
             output_path = await asyncio.to_thread(
-                media_generator.generate_short, image_path, script_text, audio_path
+                media_generator.generate_short, image_paths, subtitle_segments, audio_path
             )
 
         stage = "upload"
@@ -127,7 +127,7 @@ async def run_daily_short_job(force: bool = False) -> None:
             send_discord_alert, f"🚨 MoneyLogic 파이프라인 크리티컬 에러 (stage={stage})\n```{tb}```"
         )
     finally:
-        for path in (audio_path, image_path, output_path):
+        for path in (audio_path, output_path, *image_paths):
             if path and os.path.exists(path):
                 os.remove(path)
 

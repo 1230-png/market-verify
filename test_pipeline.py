@@ -59,7 +59,7 @@ def test_pct_change_math():
     assert script_generator._pct_change(100, 95) == -5.0
 
 
-def test_fetch_background_image_falls_back_to_next_keyword():
+def test_fetch_background_images_falls_back_to_next_keyword():
     """첫 키워드가 실패해도 다음 키워드로 넘어가고, 성공하면 그 결과를 반환한다."""
     fail_resp = Mock(status_code=200)
     fail_resp.raise_for_status = Mock()
@@ -86,12 +86,13 @@ def test_fetch_background_image_falls_back_to_next_keyword():
     with patch.object(media_generator, "TMP_DIR", tmp_dir), patch.object(
         media_generator.requests, "get", side_effect=fake_get
     ):
-        path = media_generator.fetch_background_image(["no-results-keyword", "finance"])
+        paths = media_generator.fetch_background_images(["no-results-keyword", "finance"], n=1)
         try:
-            assert os.path.exists(path)
+            assert len(paths) == 1 and os.path.exists(paths[0])
             assert calls["n"] == 2  # 첫 키워드 실패 후 두 번째로 넘어갔는지 확인
         finally:
-            os.remove(path)
+            for p in paths:
+                os.remove(p)
             os.rmdir(tmp_dir)
 
 
@@ -113,7 +114,7 @@ async def run_all():
     await test_daily_limit_skips_second_upload()
     await test_daily_limit_allows_first_upload()
     test_pct_change_math()
-    test_fetch_background_image_falls_back_to_next_keyword()
+    test_fetch_background_images_falls_back_to_next_keyword()
     test_discord_alert_never_raises_without_webhook()
     test_discord_alert_never_raises_on_network_failure()
     print("OK: quota + daily-limit + market-math + pexels-fallback + discord-notifier guards behave as expected")
