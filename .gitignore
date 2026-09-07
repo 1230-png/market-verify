@@ -1,0 +1,21 @@
+.env
+token.json
+client_secret.json
+logs/
+__pycache__/
+*.pyc
+_tmp_test/
+.venv/
+
+# 이 세션 이전에 이 폴더에 있던 구버전/실험용 파일 — 유지는 하되 git에는 안 올림
+chart.py
+news.py
+render.py
+script_gen.py
+tts.py
+upload.py
+moneylogic.db
+server.log
+audio_out/
+chart_out/
+video_out/

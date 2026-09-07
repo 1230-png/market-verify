@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: moneylogic
+      POSTGRES_USER: moneylogic
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moneylogic"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # db 서비스명으로 접속. .env의 DATABASE_URL(로컬 테스트용)보다 우선 적용된다.
+      DATABASE_URL: postgresql://moneylogic:${POSTGRES_PASSWORD}@db:5432/moneylogic
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # ponytail: 호스트 /tmp를 그대로 공유해 컨테이너 쓰기 레이어 부하를 줄인다.
+      # 다른 프로세스와 /tmp를 공유하게 되는 게 단점 — 격리가 필요해지면 전용 바인드 디렉토리로 교체.
+      - /tmp:/tmp
+      - ./logs:/app/logs
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:

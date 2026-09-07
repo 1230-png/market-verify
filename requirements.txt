@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+apscheduler
+asyncpg
+python-dotenv
+google-genai
+google-api-python-client
+google-auth
+google-auth-httplib2
+moviepy
+yfinance
+edge-tts
+requests
